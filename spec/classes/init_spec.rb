@@ -45,25 +45,21 @@ describe 'caddy' do
           )
         end
         it do
-          is_expected.to contain_archive('/tmp/caddy_linux_amd64_custom.tar.gz').with(
-            'ensure'       => 'present',
-            'extract'      => 'true',
-            'extract_path' => '/opt/caddy',
-            'source'       => 'https://caddyserver.com/download/linux/amd64?plugins=http.git,http.filter,http.ipfilter&license=personal&telemetry=off',
-            'user'         => 'root',
-            'group'        => 'root',
-            'creates'      => '/opt/caddy/caddy',
-            'cleanup'      => 'true',
-            'notify'       => 'File_capability[/opt/caddy/caddy]',
-            'require'      => 'File[/opt/caddy]'
-          )
+          is_expected.to contain_file('/opt/caddy/caddy').
+            with_ensure('file').
+            with_owner('root').
+            with_group('root').
+            with_mode('0755').
+            with_source('https://caddyserver.com/api/download?os=linux&arch=amd64&plugins=http.git,http.filter,http.ipfilter&license=personal&telemetry=off').
+            with_replace(false).
+            that_notifies('File_capability[/opt/caddy/caddy]').
+            that_requires('File[/opt/caddy]')
         end
         it do
           is_expected.to contain_file_capability('/opt/caddy/caddy').with(
             'ensure'     => 'present',
-            'capability' => 'cap_net_bind_service=ep',
-            'require'    => 'Archive[/tmp/caddy_linux_amd64_custom.tar.gz]'
-          )
+            'capability' => 'cap_net_bind_service=ep'
+          ).that_subscribes_to('File[/opt/caddy/caddy]')
         end
 
         it do
@@ -104,9 +100,9 @@ describe 'caddy' do
             'owner'   => 'caddy',
             'group'   => 'caddy',
             'mode'    => '0444',
-            'source'  => 'puppet:///modules/caddy/etc/caddy/Caddyfile',
-            'require' => 'File[/etc/caddy]'
-          )
+            'source'  => 'puppet:///modules/caddy/etc/caddy/Caddyfile'
+          ).
+            that_requires('File[/etc/caddy]')
         end
         it do
           is_expected.to contain_file('/etc/caddy/config').with(
@@ -119,28 +115,15 @@ describe 'caddy' do
           )
         end
 
-        case facts['service_provider']
-        when 'systemd'
-          it do
-            is_expected.to contain_systemd__unit_file('caddy.service').with(
-              'content' => %r{User=caddy}
-            )
-          end
-        when 'redhat'
-          it do
-            is_expected.to contain_file('/etc/init.d/caddy').with(
-              'ensure'  => 'file',
-              'owner'   => 'root',
-              'group'   => 'root',
-              'mode'    => '0755',
-              'content' => %r{DAEMONUSER=caddy}
-            )
-          end
+        it do
+          is_expected.to contain_systemd__unit_file('caddy.service').with(
+            'content' => %r{User=caddy}
+          )
         end
         it do
-          is_expected.to contain_service('caddy').with(
-            'ensure' => 'running',
-            'enable' => 'true'
+          is_expected.to contain_service('caddy.service').with(
+            'ensure' => true,
+            'enable' => true
           )
         end
       end
@@ -148,23 +131,24 @@ describe 'caddy' do
       context 'with specific version' do
         let(:params) do
           {
-            version: '1.0.3',
+            version: '2.0.0',
             install_method: 'github'
           }
         end
 
         it do
-          is_expected.to contain_archive('/tmp/caddy_v1.0.3_linux_amd64.tar.gz').with(
+          is_expected.to contain_archive('/tmp/caddy_v2.0.0_linux_amd64.tar.gz').with(
             'ensure'       => 'present',
             'extract'      => 'true',
             'extract_path' => '/opt/caddy',
-            'source'       => 'https://github.com/caddyserver/caddy/releases/download/v1.0.3/caddy_v1.0.3_linux_amd64.tar.gz',
+            'source'       => 'https://github.com/caddyserver/caddy/releases/download/v2.0.0/caddy_v2.0.0_linux_amd64.tar.gz',
             'user'         => 'root',
             'group'        => 'root',
             'creates'      => '/opt/caddy/caddy',
-            'cleanup'      => 'true',
-            'notify'       => 'File_capability[/opt/caddy/caddy]'
-          )
+            'cleanup'      => 'true'
+          ).
+            that_requires('File[/opt/caddy]').
+            that_notifies('File_capability[/opt/caddy/caddy]')
         end
       end
     end
